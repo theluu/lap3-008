@@ -37,6 +37,74 @@ DEFAULT_PROVIDER=local
 LOCAL_MODEL_PATH=./models/Phi-3-mini-4k-instruct-q4.gguf
 ```
 
+## ▶️ Cách chạy dự án
+
+### Bước 1: Chuẩn bị môi trường
+
+```bash
+# Tạo và kích hoạt virtual environment
+python -m venv .venv
+source .venv/bin/activate        # macOS/Linux
+# .venv\Scripts\activate         # Windows
+
+# Cài đặt dependencies
+pip install -r requirements.txt
+```
+
+### Bước 2: Cấu hình API Key
+
+```bash
+cp .env.example .env
+```
+
+Mở file `.env` và điền API key tương ứng với provider bạn muốn dùng:
+
+```env
+# Dùng OpenAI
+OPENAI_API_KEY=sk-...
+DEFAULT_PROVIDER=openai
+DEFAULT_MODEL=gpt-4o-mini
+
+# Hoặc dùng Google Gemini
+GEMINI_API_KEY=AIza...
+DEFAULT_PROVIDER=google
+DEFAULT_MODEL=gemini-2.0-flash
+```
+
+### Bước 3: Thu thập dữ liệu tuyển sinh VinUni
+
+Chạy scraper để tải dữ liệu từ website VinUni về thư mục `data/`:
+
+```bash
+python -c "from src.tools.vinuni_scraper import scrape_vinuni_admissions; scrape_vinuni_admissions()"
+```
+
+> Chỉ cần chạy một lần. Dữ liệu sẽ được lưu vào `data/vinuni_admissions.json`.
+
+### Bước 4: Chạy giao diện web (Streamlit)
+
+```bash
+streamlit run src/ui/app.py
+```
+
+Trình duyệt sẽ tự mở tại `http://localhost:8501`. Giao diện cho phép:
+- Chọn provider (OpenAI / Google Gemini)
+- Chọn model cụ thể
+- Chuyển đổi giữa **Chatbot** (v1) và **ReAct Agent** (v2)
+- Xem token usage và chi phí mỗi lượt hỏi
+
+### Bước 5: Xem logs & metrics (tuỳ chọn)
+
+Mọi request đều được ghi vào thư mục `logs/` ở định dạng JSON:
+
+```bash
+# Xem log mới nhất
+ls -lt logs/ | head -5
+cat logs/<tên-file>.jsonl
+```
+
+---
+
 ## 🎯 Lab Objectives
 
 1.  **Baseline Chatbot**: Observe the limitations of a standard LLM when faced with multi-step reasoning.
