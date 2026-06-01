@@ -40,5 +40,13 @@ class PerformanceTracker:
         price_in, price_out = self.PRICING.get(model, (0.01, 0.01))
         return (input_tokens * price_in + output_tokens * price_out) / 1_000_000
 
+    @property
+    def total_tokens(self) -> int:
+        return sum(m["total_tokens"] for m in self.session_metrics)
+
+    @property
+    def total_cost(self) -> float:
+        return round(sum(m["cost_estimate"] for m in self.session_metrics), 6)
+
 # Global tracker instance
 tracker = PerformanceTracker()

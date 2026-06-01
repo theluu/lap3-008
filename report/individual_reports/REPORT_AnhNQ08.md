@@ -3,6 +3,7 @@
 - **Họ và tên**: Nguyễn Quang Anh
 - **MSSV**: 2A202600608
 - **Lớp**: C401
+- **Ngày**: 6/1/2026
 - **Nhánh thực hiện**: AnhNQ-2A202600608
 
 ---
