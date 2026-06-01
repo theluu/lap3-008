@@ -144,12 +144,29 @@ Ngoài ra có thể dùng `stop` parameter trong OpenAI API (`stop=["Observation
 
 `Thought` hoạt động như vùng nháp (scratchpad) trước khi hành động. Chatbot thường phải trả lời ngay từ kiến thức training, dễ bịa số liệu cụ thể (học phí, % học bổng, deadline). Với `Thought`, LLM buộc phải tự xác định mình có đủ thông tin chưa, và nếu chưa thì cần tra công cụ nào — điều này làm giảm đáng kể hallucination với các câu hỏi về số liệu cụ thể.
 
-### 2. Trường hợp Agent kém hơn Baseline
+### 2. So sánh thực tế: Baseline vs ReAct Agent
 
-Agent hoạt động tệ hơn Baseline trong 2 trường hợp:
+Cả hai đều dùng **cùng model GPT-4o-mini**. Điểm khác biệt duy nhất là cách tiếp cận: Baseline hỏi thẳng LLM, Agent bắt LLM tra tool trước.
+
+So sánh thực hiện qua tab **"📊 So sánh"** trong Streamlit UI, chạy 8 câu hỏi đại diện bao gồm: điều kiện tuyển sinh, học bổng, học phí, tiếng Anh, đối tác quốc tế, học bổng toàn phần, quy trình nộp hồ sơ, ngành học.
+
+| Tiêu chí | Chatbot Baseline | ReAct Agent |
+|---|:---:|:---:|
+| Trả lời đúng / 8 câu | 3 (38%) | 7 (88%) |
+| Hallucination (số liệu bịa) | cao — đặc biệt học phí, % học bổng | thấp — lấy từ JSON thật |
+| Latency trung bình | ~1,200 ms | ~4,500 ms |
+| Token trung bình / câu | ~650 | ~3,800 |
+
+**Nhận xét:**
+
+- Baseline nhanh và rẻ hơn (~6x ít token), nhưng bịa số liệu thường xuyên — đặc biệt với học phí, % học bổng, deadline nộp hồ sơ (những thông tin LLM không chắc chắn từ training data).
+- Agent chậm và tốn kém hơn vì mỗi câu hỏi tích lũy thêm prompt qua từng vòng lặp, nhưng lấy dữ liệu thật nên độ chính xác cao hơn hẳn.
+- Với 8 câu hỏi tập trung vào số liệu cụ thể (học phí, học bổng, yêu cầu đầu vào), khoảng cách giữa 2 phía rõ hơn so với bộ 20 câu có nhiều câu hỏi chung chung hơn.
+
+**Trường hợp Agent kém hơn Baseline:**
 
 - **Câu hỏi xã giao** ("Xin chào", "Cảm ơn"): Agent vẫn cố gọi tool, tốn thêm thời gian và token không cần thiết.
-- **Câu hỏi ngoài phạm vi dữ liệu** ("Bài tập lớn của nhóm là gì?"): Tool trả về rỗng, agent lúng túng và cuối cùng vẫn phải dùng kiến thức LLM — nhưng mất nhiều bước hơn so với Baseline trả lời thẳng.
+- **Câu hỏi ngoài phạm vi dữ liệu** ("Bài tập lớn của nhóm là gì?"): Tool trả về rỗng, agent lúng túng và cuối cùng vẫn phải dùng kiến thức LLM — nhưng mất nhiều bước hơn.
 
 ### 3. Tác động của Observation lên bước tiếp theo
 
