@@ -122,7 +122,7 @@ def main():
         unsafe_allow_html=True,
     )
 
-    tab_chat, tab_arch = st.tabs(["💬 Chat", "📐 Architecture"])
+    tab_chat, tab_arch, tab_compare = st.tabs(["💬 Chat", "📐 Architecture", "📊 So sánh"])
 
     # ── Architecture Tab ──────────────────────────────────────────────────
     with tab_arch:
@@ -172,6 +172,107 @@ User → Streamlit UI (src/ui/app.py)
 - Score = exact×2 + partial
 - Kết quả: tìm đúng cả query có/không dấu
             """)
+
+    # ── So sánh Tab ───────────────────────────────────────────────────────
+    with tab_compare:
+        import unicodedata
+
+        TEST_CASES = [
+            ("Điều kiện tuyển sinh VinUni là gì?",        ["tuyen sinh", "admission", "vinuni"]),
+            ("Học bổng VinUni có những loại nào?",         ["hoc bong", "scholarship"]),
+            ("Học phí VinUni là bao nhiêu?",               ["phi", "hoc phi", "tuition", "fee", "chi phi"]),
+            ("Yêu cầu tiếng Anh như thế nào?",            ["english", "ielts", "tieng anh", "language"]),
+            ("Đối tác quốc tế của VinUni là gì?",          ["quoc te", "international", "partner", "cornell"]),
+            ("Có chương trình học bổng toàn phần không?",  ["hoc bong", "scholarship", "full", "toan phan"]),
+            ("Quy trình nộp hồ sơ tuyển sinh?",            ["ho so", "apply", "application", "nop"]),
+            ("VinUni có những ngành học nào?",             ["program", "nganh", "engineering", "business"]),
+        ]
+
+        def _normalize(text):
+            nfkd = unicodedata.normalize("NFKD", text.lower())
+            return "".join(c for c in nfkd if not unicodedata.combining(c))
+
+        def _contains_any(text, keywords):
+            norm = _normalize(text)
+            return any(kw in norm for kw in keywords)
+
+        st.header("📊 Baseline vs ReAct Agent")
+        st.caption("Chạy 8 câu hỏi đại diện qua cả 2 phía, so sánh kết quả trực tiếp.")
+
+        if st.button("▶ Chạy so sánh", type="primary"):
+            from src.chatbot.baseline import run_baseline
+
+            agent = get_agent("OpenAI", "gpt-4o-mini")
+            rows = []
+            progress = st.progress(0, text="Đang chạy...")
+
+            for i, (q, kws) in enumerate(TEST_CASES):
+                progress.progress((i + 1) / len(TEST_CASES), text=f"[{i+1}/8] {q[:40]}...")
+
+                # Baseline
+                t0 = time.time()
+                try:
+                    b_ans = run_baseline(q)
+                    b_lat = int((time.time() - t0) * 1000)
+                    b_ok  = _contains_any(b_ans, kws)
+                except Exception as e:
+                    b_ans, b_lat, b_ok = f"Lỗi: {e}", 0, False
+
+                # Agent
+                t0 = time.time()
+                try:
+                    a_ans = agent.run(q)
+                    a_lat = int((time.time() - t0) * 1000)
+                    a_ok  = _contains_any(a_ans, kws)
+                    a_tok = agent.last_run_usage.get("total_tokens", 0)
+                except Exception as e:
+                    a_ans, a_lat, a_ok, a_tok = f"Lỗi: {e}", 0, False, 0
+
+                rows.append({
+                    "q": q, "kws": kws,
+                    "b_ok": b_ok, "b_lat": b_lat, "b_ans": b_ans,
+                    "a_ok": a_ok, "a_lat": a_lat, "a_tok": a_tok, "a_ans": a_ans,
+                })
+
+            progress.empty()
+            st.session_state["compare_results"] = rows
+
+        # Hiển thị kết quả nếu đã chạy
+        if "compare_results" in st.session_state:
+            rows = st.session_state["compare_results"]
+            n = len(rows)
+            b_score = sum(r["b_ok"] for r in rows)
+            a_score = sum(r["a_ok"] for r in rows)
+            b_lat   = sum(r["b_lat"] for r in rows) // n
+            a_lat   = sum(r["a_lat"] for r in rows) // n
+            a_tok   = sum(r["a_tok"] for r in rows) // n
+
+            # Tổng hợp
+            c1, c2, c3 = st.columns(3)
+            c1.metric("Baseline đúng",  f"{b_score}/{n}", f"{b_score/n:.0%}")
+            c2.metric("Agent đúng",     f"{a_score}/{n}", f"{a_score/n:.0%}",
+                      delta_color="normal" if a_score >= b_score else "inverse")
+            c3.metric("Agent avg token", f"{a_tok:,}")
+
+            col1, col2 = st.columns(2)
+            col1.metric("Baseline avg latency", f"{b_lat} ms")
+            col2.metric("Agent avg latency",    f"{a_lat} ms")
+
+            st.divider()
+
+            # Bảng chi tiết
+            st.subheader("Chi tiết từng câu")
+            for i, r in enumerate(rows, 1):
+                b_icon = "✅" if r["b_ok"] else "❌"
+                a_icon = "✅" if r["a_ok"] else "❌"
+                with st.expander(f"{b_icon} / {a_icon}  {r['q']}"):
+                    cl, cr = st.columns(2)
+                    with cl:
+                        st.markdown(f"**Baseline** {b_icon} · {r['b_lat']} ms")
+                        st.write(r["b_ans"])
+                    with cr:
+                        st.markdown(f"**Agent** {a_icon} · {r['a_lat']} ms · {r['a_tok']} tokens")
+                        st.write(r["a_ans"])
 
     # ── Chat Tab ──────────────────────────────────────────────────────────
     with tab_chat:
